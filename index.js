@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const jwt = require('jsonwebtoken')
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
 const port = process.env.PORT || 5000;
@@ -29,6 +30,14 @@ async function run() {
     const jobApplicationCollection = client
       .db("jobPortal")
       .collection("job_applications");
+
+    // Auth Related APIs
+    app.post('/jwt', async(req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, 'secret', {expiresIn: '1h'});
+      res.send(token)
+    })
+
 
     app.get("/jobs", async (req, res) => {
       const email = req.query.email;
@@ -75,12 +84,12 @@ async function run() {
       res.send(result);
     });
 
-    app.get('/job-applications/jobs/:job_id', async(req, res)=>{
+    app.get("/job-applications/jobs/:job_id", async (req, res) => {
       const jobId = req.params.job_id;
-      const query = {job_id: jobId}
-      const result = await jobApplicationCollection.find(query).toArray()
-       res.send(result)
-    })
+      const query = { job_id: jobId };
+      const result = await jobApplicationCollection.find(query).toArray();
+      res.send(result);
+    });
 
     app.post("/job-applications", async (req, res) => {
       const application = req.body;
@@ -88,41 +97,44 @@ async function run() {
 
       //not the best way (using agregate would be the best way, will do it later)
       const id = application.job_id;
-      const query = {_id: new ObjectId(id)}
-      const job = await jobsCollection.findOne(query)
+      const query = { _id: new ObjectId(id) };
+      const job = await jobsCollection.findOne(query);
       let newCount = 0;
       if (job.applicationCount) {
-        newCount = job.applicationCount + 1
-      }else{
-        newCount = 1
+        newCount = job.applicationCount + 1;
+      } else {
+        newCount = 1;
       }
 
       // now update the job info
-      const filter = {_id: new ObjectId(id)}
+      const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
         $set: {
-          applicationCount: newCount
-        }
-      }
-      
-      const updatedResult = await jobsCollection.updateOne(filter, updatedDoc)
+          applicationCount: newCount,
+        },
+      };
+
+      const updatedResult = await jobsCollection.updateOne(filter, updatedDoc);
 
       res.send(result);
     });
 
-    app.patch('/job-applications/:id', async (req, res) => {
+    app.patch("/job-applications/:id", async (req, res) => {
       const id = req.params.id;
       const data = req.body;
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
-          $set: {
-              status: data.status
-          }
-      }
-      const result = await jobApplicationCollection.updateOne(filter, updatedDoc);
-      res.send(result)
-  })
-  
+        $set: {
+          status: data.status,
+        },
+      };
+      const result = await jobApplicationCollection.updateOne(
+        filter,
+        updatedDoc
+      );
+      res.send(result);
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
